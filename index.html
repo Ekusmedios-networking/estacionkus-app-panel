@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel · Estación Kus Medios</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--navy:#0a1628;--card:#12243e;--card2:#16294a;--orange:#ff7a00;--orange2:#ff9a3c;--text:#fff;--dim:#9fb0cc;--dim2:#6f80a0}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--navy);color:var(--text);min-height:100vh}
+  header{background:linear-gradient(150deg,#6d28d9,#4338ca 45%,#0d9488);padding:22px 20px;border-radius:0 0 22px 22px}
+  header h1{font-size:20px;font-weight:800}
+  header p{font-size:12px;color:rgba(255,255,255,.8);margin-top:2px}
+  main{max-width:520px;margin:0 auto;padding:18px 16px 40px}
+  .card{background:var(--card);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:16px;margin-bottom:14px}
+  label{display:block;font-size:12px;color:var(--dim);margin:12px 0 6px;letter-spacing:.4px;text-transform:uppercase}
+  input[type=text],select{width:100%;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:var(--card2);color:#fff;font-size:14px}
+  .row{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .switch{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--dim)}
+  button.primary{width:100%;margin-top:16px;padding:13px;border:none;border-radius:14px;background:var(--orange);color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+  button.primary:active{transform:scale(.98)}
+  button.ghost{background:none;border:none;color:var(--dim2);font-size:12px;margin-top:12px;width:100%;cursor:pointer}
+  #msg{margin-top:12px;font-size:13px;text-align:center;min-height:18px}
+  .ok{color:#4ade80}.err{color:#ff9b9b}
+  #appView{display:none}
+  .hint{font-size:11px;color:var(--dim2);margin-top:6px}
+</style>
+</head>
+<body>
+<header><h1>Panel · Estación Kus Medios</h1><p>Administración de la app Android</p></header>
+<main>
+  <div class="card" id="loginView">
+    <label>Correo</label>
+    <input type="text" id="email" autocomplete="username">
+    <label>Contraseña</label>
+    <input type="text" id="pass" style="-webkit-text-security:disc" autocomplete="current-password">
+    <button class="primary" id="btnLogin">Entrar</button>
+  </div>
+
+  <div id="appView">
+    <div class="card">
+      <label>Aviso en la app</label>
+      <input type="text" id="annText" placeholder="Texto del aviso (vacío = sin aviso)">
+      <div class="row"><label class="switch"><input type="checkbox" id="annActive"> Mostrar aviso en la app</label></div>
+      <div class="hint">Aparece como banda superior en la pantalla de Inicio.</div>
+    </div>
+    <div class="card">
+      <label>Estación destacada</label>
+      <select id="featured">
+        <option>Estacionkusfm</option>
+        <option>Runa FM</option>
+        <option>RunaRadio Irapuato</option>
+        <option>KusFM Joven</option>
+        <option>Radio Aventura MX</option>
+      </select>
+      <div class="hint">Se muestra primero en Explorar y en la lista.</div>
+    </div>
+    <div class="card">
+      <label>Enlace web (pie de la app)</label>
+      <input type="text" id="webLink" placeholder="https://estacionkusmedios.org">
+    </div>
+    <button class="primary" id="btnSave">Guardar cambios</button>
+    <button class="ghost" id="btnLogout">Cerrar sesión</button>
+  </div>
+  <div id="msg"></div>
+</main>
+<script>
+var SUPA_URL = 'https://dxpwyptmhbfqpmueqtat.supabase.co';
+var SUPA_KEY = 'sb_publishable_YeCGIwdRM3d5rnpvqLPHSw_HGe2n6gz';
+var sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+function msg(t, ok){ var m=document.getElementById('msg'); m.textContent=t; m.className=ok?'ok':'err'; }
+function showApp(){ document.getElementById('loginView').style.display='none'; document.getElementById('appView').style.display='block'; }
+function showLogin(){ document.getElementById('loginView').style.display='block'; document.getElementById('appView').style.display='none'; }
+
+function loadConfig(){
+  sb.from('app_config').select('key,value').then(function(r){
+    if (r.error) { msg('Error al cargar: '+r.error.message, false); return; }
+    (r.data||[]).forEach(function(row){
+      if (row.key==='announcement'){ document.getElementById('annText').value=row.value.text||''; document.getElementById('annActive').checked=!!row.value.active; }
+      if (row.key==='featured'){ document.getElementById('featured').value=row.value.station||'Estacionkusfm'; }
+      if (row.key==='links'){ document.getElementById('webLink').value=(row.value.web)||''; }
+    });
+  });
+}
+
+document.getElementById('btnLogin').addEventListener('click', function(){
+  msg('', true);
+  sb.auth.signInWithPassword({email:document.getElementById('email').value.trim(), password:document.getElementById('pass').value}).then(function(r){
+    if (r.error) { msg('Acceso denegado: '+r.error.message, false); return; }
+    showApp(); loadConfig();
+  });
+});
+document.getElementById('btnSave').addEventListener('click', function(){
+  var rows = [
+    {key:'announcement', value:{text:document.getElementById('annText').value.trim(), active:document.getElementById('annActive').checked}, updated_at:new Date().toISOString()},
+    {key:'featured', value:{station:document.getElementById('featured').value}, updated_at:new Date().toISOString()},
+    {key:'links', value:{web:document.getElementById('webLink').value.trim()||'https://estacionkusmedios.org'}, updated_at:new Date().toISOString()}
+  ];
+  sb.from('app_config').upsert(rows).then(function(r){
+    if (r.error) { msg('Error al guardar: '+r.error.message, false); return; }
+    msg('Guardado. La app lo refleja en unos minutos.', true);
+  });
+});
+document.getElementById('btnLogout').addEventListener('click', function(){ sb.auth.signOut().then(function(){ showLogin(); msg('', true); }); });
+
+sb.auth.getSession().then(function(r){ if (r.data && r.data.session) { showApp(); loadConfig(); } });
+</script>
+</body>
+</html>
